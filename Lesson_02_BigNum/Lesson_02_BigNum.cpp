@@ -1,305 +1,195 @@
 ﻿#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <iomanip>
+#include <stdexcept>
+#include <string>
+#include <utility>
 
 using namespace std;
 
-class BigNum
-{
-public:
-	BigNum();
-	BigNum(const char *num);
-	BigNum(const BigNum& other);
-	BigNum& operator = (const BigNum& other);
-	BigNum& operator + (const BigNum& other);
-	void print();
-	~BigNum();
 
+int my_div(int num, int diver) {
+    if ((num < 0) && (num % diver))
+        return num / diver - 1;
+    else
+        return num / diver;
+}
+
+
+int my_mod(int num, int diver) {
+    if ((num < 0) && (num % diver))
+        return num % diver + diver;
+    else
+        return num % diver;
+}
+
+
+class BigNumber {
 private:
-	char intToChar(int a);
-	char *num;
+    vector<int> chunks;
+    int sign;
+
+    static const int BASE = 2;
+
+    static const int BASE10 = 100;
+
+
+    BigNumber _plus(BigNumber& a);
+    BigNumber _minus(BigNumber& a);
+
+    void _normalizationSigns();
+    void _normalizationChunks();
+    void _resize(int newsize);
+
+public:
+
+    BigNumber operator + (BigNumber& num);
+
+    friend ostream& operator << (ostream& os, BigNumber& num);
+
+    int getBASE() {
+        return this->BASE;
+    }
+
+
+    BigNumber(string str) {
+        int i;
+        if (BASE != 1) {
+
+            for (i = str.size() - BASE; i >= BASE - 1; i -= BASE) {
+                chunks.push_back(stoi(str.substr(i, BASE)));
+            }
+        }
+        else {
+            for (i = str.size() - BASE; i >= BASE; i -= BASE) {
+                chunks.push_back(stoi(str.substr(i, BASE)));
+            }
+        }
+
+        if (str[0] == '-') {
+            sign = -1;
+            if (i + BASE - 1 != 0) {
+                chunks.push_back(stoi(str.substr(1, i + BASE - 1)));
+            }
+        }
+        else {
+            sign = 1;
+            chunks.push_back(stoi(str.substr(0, i + BASE)));
+        }
+    }
+
+
+    BigNumber() {
+        sign = 1;
+    }
 };
 
-BigNum::BigNum()
-{
-	num = nullptr;
+void BigNumber::_resize(int newSize) {
+    chunks.resize(newSize);
 }
 
-BigNum::BigNum(const char *num)
-{
-	int lenght = strlen(num);
-	this->num = new char[lenght + 1];
 
-	for (int i = 0; i < lenght; i++) {
+void BigNumber::_normalizationChunks() {
+    int over = 0;
+    for (int i = 0; i < chunks.size() - 1; i++) {
+        chunks[i] += over;
+        over = my_div(chunks[i], BASE10);
+        chunks[i] = my_mod(chunks[i], BASE10);
+    }
 
-		switch (num[i])
-		{
-		case '0':
-		case '1':
-		case '2':
-		case '3':
-		case '4':
-		case '5':
-		case '6':
-		case '7':
-		case '8':
-		case '9':
-			this->num[i] = num[i];
-			break;
-		default:
-			
-			break;
-		}
-		
-	}
 
-	this->num[lenght] = '/0';
+    chunks[chunks.size() - 1] += over;
 
+    if (chunks[chunks.size() - 1] / BASE10) {
+        over = my_div(chunks[chunks.size() - 1], BASE10);
+        chunks[chunks.size() - 1] = my_mod(chunks[chunks.size() - 1], BASE10);
+        chunks.push_back(over);
+    }
+    return;
 }
 
-BigNum::BigNum(const BigNum& other)
-{
 
-	int lenght = strlen(other.num);
-	this->num = new char[lenght + 1];
+void BigNumber::_normalizationSigns() {
 
-	for (int i = 0; i < lenght; i++) {
+    if (chunks[chunks.size() - 1] < 0) {
+        sign = -sign;
+        chunks[0] = BASE10 - chunks[0];
+        for (int i = 1; i < chunks.size(); i++) {
+            chunks[i] = (BASE10 - chunks[i] - 1) % BASE10;
+        }
+    }
 
-		switch (num[i])
-		{
-		case '0':
-		case '1':
-		case '2':
-		case '3':
-		case '4':
-		case '5':
-		case '6':
-		case '7':
-		case '8':
-		case '9':
-			this->num[i] = num[i];
-			break;
-		default:
-			return;
-			break;
-		}
-
-	}
-
-	this->num[lenght] = '/0';
+    int i = chunks.size() - 1;
+    while (chunks[i] == 0) {
+        if (i == 0) {
+            sign = 1;
+            return;
+        }
+        chunks.pop_back();
+        i--;
+    }
+    return;
 }
 
-BigNum& BigNum::operator=(const BigNum& other)
-{
-	if (this->num != nullptr) {
-		delete[] num;
-	}
 
-
-
-	int lenght = strlen(other.num);
-	this->num = new char[lenght + 1];
-
-	for (int i = 0; i < lenght; i++) {
-
-		switch (num[i])
-		{
-		case '0':
-		case '1':
-		case '2':
-		case '3':
-		case '4':
-		case '5':
-		case '6':
-		case '7':
-		case '8':
-		case '9':
-			this->num[i] = num[i];
-			break;
-		default:
-			
-			break;
-		}
-
-	}
-
-	this->num[lenght] = '/0';
-
-	return *this;
+BigNumber BigNumber::_plus(BigNumber& num) {
+    BigNumber res;
+    res.sign = this->sign;
+    for (int i = 0; i < this->chunks.size(); i++) {
+        res.chunks.push_back(this->chunks[i] + num.chunks[i]);
+    }
+    return res;
 }
 
-BigNum& BigNum::operator+(const BigNum& other)
-{
-	BigNum newNum;
 
-	int numLenghtOne = strlen(num);
-	int numLenghtTwo = strlen(other.num);
-
-	int col;
-
-	int i_1 = num[0];
-	int i_2 = other.num[0];
-
-	if (numLenghtOne < numLenghtTwo) 
-	{
-		newNum.num = new char[numLenghtTwo + 1];
-		col = numLenghtTwo;
-	}
-	else if (numLenghtOne > numLenghtTwo)
-	{
-		newNum.num = new char[numLenghtOne + 1];
-		col = numLenghtOne;
-	}
-	else 
-	{
-
-		int s = (int)num[0] + (int)other.num[0] + 0;
-
-		if (s >= 10) 
-		{
-			newNum.num = new char[numLenghtOne + 2];
-			col = numLenghtOne + 1;
-		}
-		else 
-		{
-			newNum.num = new char[numLenghtOne + 1];
-			col = numLenghtOne;
-		}
-
-	}
-
-	bool ost = false;
-	
-	for (int i = 0; i < col; i++) {
-		if (numLenghtOne >= 0 && numLenghtTwo >= 0) {
-			if (!ost) {
-				int sum = (int)num[numLenghtOne] + (int)other.num[numLenghtTwo];
-				if (sum < 10) {
-					newNum.num[col - i] = intToChar(sum);
-				}
-				else {
-					sum = sum % 10;
-					ost = true;
-					newNum.num[col - i] = intToChar(sum);
-				}
-			}
-			else {
-				int sum = (int)num[numLenghtOne - i] + (int)other.num[numLenghtTwo - i] + 1;
-				if (sum < 10) {
-					newNum.num[col - i] = intToChar(sum);
-					ost = false;
-				}
-				else {
-					sum = sum % 10;
-					ost = true;
-					newNum.num[col - i] = intToChar(sum);
-				}
-			}
-			numLenghtOne--;
-			numLenghtTwo--;
-		}
-		else if (numLenghtOne >= 0) {
-			if (ost) {
-				int sum = (int)num[numLenghtOne] + 1;
-				if (sum < 10) {
-					newNum.num[col - i] = intToChar(sum);
-					ost = false;
-				}
-				else {
-					sum = sum % 10;
-					ost = true;
-					newNum.num[col - i] = intToChar(sum);
-				}
-			}
-			else {
-				newNum.num[col - i] = num[numLenghtOne];
-			}
-			numLenghtOne--;
-		}
-		else if (numLenghtTwo >= 0) {
-			if (ost) {
-				int sum = (int)other.num[numLenghtTwo] + 1;
-				if (sum < 10) {
-					newNum.num[col - i] = intToChar(sum);
-					ost = false;
-				}
-				else {
-					sum = sum % 10;
-					ost = true;
-					newNum.num[col - i] = intToChar(sum);
-				}
-			}
-			else {
-				newNum.num[col - i] = other.num[numLenghtTwo];
-			}
-			numLenghtTwo--;
-		}
-
-	}
-	
-	newNum.num[col] = '\0';
-
-	return newNum;
-	// TODO: вставьте здесь оператор return
+BigNumber BigNumber::_minus(BigNumber& num) {
+    BigNumber res;
+    res.sign = this->sign;
+    for (int i = 0; i < this->chunks.size(); i++) {
+        res.chunks.push_back(this->chunks[i] - num.chunks[i]);
+    }
+    return res;
 }
 
-void BigNum::print()
-{
-	cout << num << endl;
+
+BigNumber BigNumber::operator + (BigNumber& num) {
+    BigNumber res;
+
+    if (this->chunks.size() > num.chunks.size()) {
+        num._resize(chunks.size());
+    }
+    else {
+        (*this)._resize(num.chunks.size());
+    }
+
+    if (sign == num.sign) {
+        res = (*this)._plus(num);
+    }
+    else {
+        res = (*this)._minus(num);
+    }
+
+    res._normalizationChunks();
+    return res;
 }
 
-BigNum::~BigNum()
-{
-	delete[] this->num;
+ostream& operator << (ostream& os, BigNumber& num) {
+    num._normalizationSigns();
+    if (num.sign == -1) {
+        os << '-';
+    }
+    os << num.chunks[num.chunks.size() - 1];
+    for (int i = num.chunks.size() - 2; i >= 0; i--) {
+        os << setw(num.getBASE()) << setfill('0') << num.chunks[i];
+    }
+    return os;
 }
 
-char BigNum::intToChar(int a)
-{
-	switch (a)
-	{
-	case 1:
-		return '1';
-		break;
-	case 2:
-		return '2';
-		break;
-	case 3:
-		return '3';
-		break;
-	case 4:
-		return '4';
-		break;
-	case 5:
-		return '5';
-		break;
-	case 6:
-		return '6';
-		break;
-	case 7:
-		return '7';
-		break;
-	case 8:
-		return '8';
-		break;
-	case 9:
-		return '9';
-		break;
-	case 0:
-		return '0';
-		break;
-	default:
-		break;
-	}
-	
+int main() {
+    BigNumber n1("-200000000000000000000000000000000000000000000000000000000000010");
+    BigNumber n2("-20");
+    BigNumber n3 = n1 + n2;
+    cout << n3 << endl;
+    return 0;
 }
-
-int main()
-{
-	BigNum a = "555555555555555555555555";
-	BigNum b = "5555555555555555555";
-
-
-
-	BigNum result;
-	result = a + b;
-	result.print();
-}
-
